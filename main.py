@@ -18,6 +18,14 @@ from a2c_ppo_acktr.envs import make_vec_envs
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
+from neural_density import NeuralDensity
+from skimage.transform import resize
+
+#from visualize import visdom_plot
+
+import tensorflow as tf
+
+imresize = resize
 
 
 def main():
@@ -100,6 +108,17 @@ def main():
     start = time.time()
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
+
+    step_count = 0
+    img_scale=1
+
+    if (bool(args.useNeural)):
+        nd_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+        nd_config.gpu_options.allow_growth = True
+        nd_sess = tf.Session(config=nd_config)
+
+        neural_density = NeuralDensity(nd_sess)
+
     for j in range(num_updates):
 
         if args.use_linear_lr_decay:
@@ -117,6 +136,16 @@ def main():
 
             # Obser reward and next obs
             obs, reward, done, infos = envs.step(action)
+
+            if (bool(args.useNeural)):
+                frame = imresize(obs / img_scale, (42, 42), order=1)
+                psc_add = neural_density.neural_psc(frame, step)
+            else:
+                psc_add = 3.14159
+
+            step_count += 1
+
+            print(psc_add)
 
             for info in infos:
                 if 'episode' in info.keys():
@@ -190,6 +219,9 @@ def main():
             ob_rms = utils.get_vec_normalize(envs).ob_rms
             evaluate(actor_critic, ob_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
+
+        if (bool(args.useNeural)):
+            neural_density.saveModel(str(args.nameDemonstrator))
 
 
 if __name__ == "__main__":
