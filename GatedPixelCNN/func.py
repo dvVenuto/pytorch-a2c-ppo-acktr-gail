@@ -27,6 +27,18 @@ flags.DEFINE_float("grad_clip", 1, "value of gradient to be used for clipping")
 flags.DEFINE_string("log_level", "INFO", "log level [DEBUG, INFO, WARNING, ERROR, CRITICAL]")
 flags.DEFINE_integer('random_seed', 123, 'Value of random seed')
 
+flags.DEFINE_string('algo', '', 'kernel')
+flags.DEFINE_string('num-frames', '', 'kernel')
+flags.DEFINE_string('num-processes', '', 'kernel')
+flags.DEFINE_string('num-steps', '', 'kernel')
+flags.DEFINE_string('lr', '', 'kernel')
+flags.DEFINE_string('env-name', '', 'kernel')
+flags.DEFINE_string('useNeural', '', 'kernel')
+
+
+
+
+
 conf = flags.FLAGS
 
 # logging
