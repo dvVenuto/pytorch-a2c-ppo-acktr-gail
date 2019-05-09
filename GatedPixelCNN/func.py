@@ -34,6 +34,22 @@ flags.DEFINE_string('num-steps', '', 'kernel')
 flags.DEFINE_string('lr', '', 'kernel')
 flags.DEFINE_string('env-name', '', 'kernel')
 flags.DEFINE_string('useNeural', '', 'kernel')
+flags.DEFINE_string('use-gae', '', 'kernel')
+flags.DEFINE_string('log-interval', '', 'kernel')
+flags.DEFINE_string('entropy-coef', '', 'kernel')
+flags.DEFINE_string('value-loss-coef', '', 'kernel')
+flags.DEFINE_string('ppo-epoch', '', 'kernel')
+flags.DEFINE_string('num-mini-batch', '', 'kernel')
+
+flags.DEFINE_string('gamma', '', 'kernel')
+flags.DEFINE_string('gae-lambda', '', 'kernel')
+flags.DEFINE_string('num-env-steps', '', 'kernel')
+flags.DEFINE_string('use-proper-time-limits', '', 'kernel')
+flags.DEFINE_string('use-linear-lr-decay', '', 'kernel')
+
+
+
+
 
 
 

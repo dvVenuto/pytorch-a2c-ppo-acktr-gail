@@ -14,7 +14,7 @@ def get_args():
         help='do imitation learning with gail')
     parser.add_argument(
         '--useNeural',
-        action='useNeural',
+        type=bool,
         default=False,
         help='do neural density estimate')
     parser.add_argument(

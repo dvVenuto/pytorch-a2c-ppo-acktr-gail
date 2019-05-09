@@ -31,7 +31,7 @@ class PPO():
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
-    def update(self, rollouts):
+    def update(self, rollouts, psc_add, psc_weight):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
@@ -75,10 +75,12 @@ class PPO():
                                                  value_losses_clipped).mean()
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
+                psc_add = torch.tensor(psc_add, requires_grad=True)
+
 
                 self.optimizer.zero_grad()
                 (value_loss * self.value_loss_coef + action_loss -
-                 dist_entropy * self.entropy_coef).backward()
+                 dist_entropy * self.entropy_coef - psc_add * psc_weight).backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
                 self.optimizer.step()
