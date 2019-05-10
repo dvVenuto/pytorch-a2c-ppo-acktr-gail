@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-
 class PPO():
     def __init__(self,
                  actor_critic,
@@ -14,8 +13,7 @@ class PPO():
                  entropy_coef,
                  lr=None,
                  eps=None,
-                 max_grad_norm=None,
-                 use_clipped_value_loss=True):
+                 max_grad_norm=None):
 
         self.actor_critic = actor_critic
 
@@ -27,7 +25,6 @@ class PPO():
         self.entropy_coef = entropy_coef
 
         self.max_grad_norm = max_grad_norm
-        self.use_clipped_value_loss = use_clipped_value_loss
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
@@ -47,40 +44,36 @@ class PPO():
             else:
                 data_generator = rollouts.feed_forward_generator(
                     advantages, self.num_mini_batch)
-
+            steper=0
             for sample in data_generator:
+
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                   value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ = sample
+                   return_batch, masks_batch, old_action_log_probs_batch, \
+                        adv_targ, psc_batch = sample
+
+                psc_batch=(psc_batch).mean()
+
+                steper += 1
 
                 # Reshape to do in a single forward pass for all steps
-                values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
-                    obs_batch, recurrent_hidden_states_batch, masks_batch,
-                    actions_batch)
+                values, action_log_probs, dist_entropy, states = self.actor_critic.evaluate_actions(
+                    obs_batch, recurrent_hidden_states_batch,
+                    masks_batch, actions_batch)
 
-                ratio = torch.exp(action_log_probs -
-                                  old_action_log_probs_batch)
+                ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
                 surr1 = ratio * adv_targ
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
-                                    1.0 + self.clip_param) * adv_targ
+                                           1.0 + self.clip_param) * adv_targ
                 action_loss = -torch.min(surr1, surr2).mean()
 
-                if self.use_clipped_value_loss:
-                    value_pred_clipped = value_preds_batch + \
-                        (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
-                    value_losses = (values - return_batch).pow(2)
-                    value_losses_clipped = (
-                        value_pred_clipped - return_batch).pow(2)
-                    value_loss = 0.5 * torch.max(value_losses,
-                                                 value_losses_clipped).mean()
-                else:
-                    value_loss = 0.5 * (return_batch - values).pow(2).mean()
-                psc_add = torch.tensor(psc_add, requires_grad=True)
+                value_loss = F.mse_loss(return_batch, values)
 
+                #print(value_loss)
+                print(psc_add)
 
                 self.optimizer.zero_grad()
                 (value_loss * self.value_loss_coef + action_loss -
-                 dist_entropy * self.entropy_coef - psc_add * psc_weight).backward()
+                 dist_entropy * self.entropy_coef - psc_batch * psc_weight).backward(retain_graph=True)
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
                 self.optimizer.step()

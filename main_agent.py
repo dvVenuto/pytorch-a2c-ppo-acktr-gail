@@ -186,13 +186,15 @@ def main():
     step_count = 0
     img_scale=1
 
-    if (bool(args.useNeural)):
-        FLAGS = update_tf_wrapper_args(args, utils.gatedpixelcnn_bonus.FLAGS)
+    if args.useNeural:
+        # FLAGS = update_tf_wrapper_args(args,)
         tf_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
         tf_config.gpu_options.allow_growth = True
         sess = tf.Session(config=tf_config)
         pixel_bonus = PixelBonus(FLAGS, sess)
         tf.initialize_all_variables().run(session=sess)
+        if args.loadNeural is not None:
+            pixel_bonus.load_model(args.loadNeural)
 
     for j in range(num_updates):
 
@@ -304,7 +306,7 @@ def main():
                      args.num_processes, eval_log_dir, device)
 
     if args.useNeural:
-        pixel_bonus.save_model(str(args.nameDemonstrator), step)
+        pixel_bonus.save_model(str(args.nameDemonstrator) + "neural", step)
         print("Neural model has been successfully saved and named %s" % str(args.nameDemonstrator))
 
 
