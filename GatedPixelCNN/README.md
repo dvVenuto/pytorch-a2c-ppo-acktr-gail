@@ -29,9 +29,9 @@ data | "mnist" | "mnist" | "color-mnist" | "cifar" | Name of dataset.
 
 ## Gated Convolutional Layers  
 
-![architecture](assets/gated_pixel_cnn_architecture.png)  
+![architecture](./assets/gated_pixel_cnn_architecture.png)  
 
-![activation_unit](assets/gated_activation_unit.png)  
+![activation_unit](./assets/gated_activation_unit.png)  
 
 ## References
 - [PixelCNN++ paper](https://openreview.net/pdf?id=BJrFC6ceg) with [Code](https://github.com/openai/pixel-cnn)  

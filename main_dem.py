@@ -18,14 +18,88 @@ from a2c_ppo_acktr.envs import make_vec_envs
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
-from neural_density import NeuralDensity
 from skimage.transform import resize
+
+from gatedpixelcnn_bonus import PixelBonus
+
 
 #from visualize import visdom_plot
 
 import tensorflow as tf
 
 imresize = resize
+
+def update_tf_wrapper_args(args, tf_flags):
+    """
+    take input command line args to DQN agent and update tensorflow wrapper default
+    settings
+    :param args:
+    :param FLAGS:
+    :return:
+    """
+    # doesn't support boolean arguments
+    to_parse = args.wrapper_args
+    if to_parse:
+        for kwarg in to_parse:
+            keyname, val = kwarg.split('=')
+            if keyname in ['ckpt_path', 'data_path', 'samples_path', 'summary_path']:
+                # if directories don't exist, make them
+                if not os.path.exists(val):
+                    os.makedirs(val)
+                tf_flags.update(keyname, val)
+            elif keyname in ['data', 'model']:
+                tf_flags.update(keyname, val)
+            elif keyname in ['mmc_beta']:
+                tf_flags.update(keyname, float(val))
+            else:
+                tf_flags.update(keyname, int(val))
+    return tf_flags
+
+class DotDict(object):
+    def __init__(self, dict):
+        self.dict = dict
+
+    def __getattr__(self, name):
+        return self.dict[name]
+
+    def update(self, name, val):
+        self.dict[name] = val
+
+    # can delete this later
+    def get(self, name):
+        return self.dict[name]
+
+FLAGS = DotDict({
+    'img_height': 42,
+    'img_width': 42,
+    'channel': 1,
+    'data': 'mnist',
+    'conditional': False,
+    'num_classes': None,
+    'filter_size': 3,
+    'init_fs': 7,
+    'f_map': 16,
+    'f_map_fc': 16,
+    'colors': 8,
+    'parallel_workers': 1,
+    'layers': 3,
+    'epochs': 25,
+    'batch_size': 16,
+    'model': '',
+    'data_path': 'data',
+    'ckpt_path': 'ckpts',
+    'samples_path': 'samples',
+    'summary_path': 'logs',
+    'restore': True,
+    'nr_resnet': 1,
+    'nr_filters': 32,
+    'nr_logistic_mix': 5,
+    'resnet_nonlinearity': 'concat_elu',
+    'lr_decay': 0.999995,
+    'lr': 0.00005,
+    'num_ds': 1,
+    'nameDemonstrator' : 'None',
+})
 
 
 def main():
@@ -113,11 +187,12 @@ def main():
     img_scale=1
 
     if (bool(args.useNeural)):
-        nd_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
-        nd_config.gpu_options.allow_growth = True
-        nd_sess = tf.Session(config=nd_config)
-
-        neural_density = NeuralDensity(nd_sess)
+        FLAGS = update_tf_wrapper_args(args, utils.gatedpixelcnn_bonus.FLAGS)
+        tf_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+        tf_config.gpu_options.allow_growth = True
+        sess = tf.Session(config=tf_config)
+        pixel_bonus = PixelBonus(FLAGS, sess)
+        tf.initialize_all_variables().run(session=sess)
 
     for j in range(num_updates):
 
@@ -137,28 +212,36 @@ def main():
             # Obser reward and next obs
             obs, reward, done, infos = envs.step(action)
 
-            if (bool(args.useNeural)):
-                frame = imresize(obs / img_scale, (42, 42), order=1)
-                psc_add = neural_density.neural_psc(frame, step)
+            # print(obs)
+            psc_add = 0
+            if args.useNeural:
+                for i in obs[0]:
+                    psc_add += pixel_bonus.bonus(i, step_count)
+                    step_count += 1
+                psc_add = psc_add / 12
             else:
                 psc_add = 0
 
-            step_count += 1
+            step += 1
 
-            print(psc_add)
+            # print(psc_add)
 
+            """
             for info in infos:
                 if 'episode' in info.keys():
+                    print(reward)
                     episode_rewards.append(info['episode']['r'])
+            """
+
+            # FIXME: works only for environments with sparse rewards
+            for idx, eps_done in enumerate(done):
+                if eps_done:
+                    episode_rewards.append(reward[idx])
 
             # If done then clean the history of observations.
-            masks = torch.FloatTensor(
-                [[0.0] if done_ else [1.0] for done_ in done])
-            bad_masks = torch.FloatTensor(
-                [[0.0] if 'bad_transition' in info.keys() else [1.0]
-                 for info in infos])
-            rollouts.insert(obs, recurrent_hidden_states, action,
-                            action_log_prob, value, reward, masks, bad_masks)
+            masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
+            psc_add = torch.FloatTensor([0.0])
+            rollouts.insert(obs, recurrent_hidden_states, action, action_log_prob, value, reward, masks, psc_add)
 
         with torch.no_grad():
             next_value = actor_critic.get_value(
@@ -220,8 +303,9 @@ def main():
             evaluate(actor_critic, ob_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
 
-        if (bool(args.useNeural)):
-            neural_density.saveModel(str(args.nameDemonstrator))
+    if args.useNeural:
+        pixel_bonus.save_model(str(args.nameDemonstrator), step)
+        print("Neural model has been successfully saved and named %s" % str(args.nameDemonstrator))
 
 
 if __name__ == "__main__":

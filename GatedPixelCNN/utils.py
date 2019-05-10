@@ -2,7 +2,10 @@ import logging
 logging.basicConfig(format="[%(asctime)s] %(message)s", datefmt="%m-%d %H:%M:%S")
 
 import os
+import sys
+import urllib
 import pprint
+import tarfile
 import tensorflow as tf
 
 import datetime
@@ -34,10 +37,9 @@ def binarize(images):
   return (np.random.uniform(size=images.shape) < images).astype('float32')
 
 def save_images(images, height, width, n_row, n_col, 
-      cmin=0.0, cmax=1.0, directory="./", prefix="sample"):
+      cmin=0.0, cmax=1.0, directory="./images/", prefix="sample", t=0):
   channels = images.shape[3]
-  if not os.path.exists(directory):
-    os.mkdir(directory)
+
   if channels == 1:
     images = images.reshape((n_row, n_col, height, width))
     images = images.transpose(0, 2, 1, 3)
@@ -47,7 +49,7 @@ def save_images(images, height, width, n_row, n_col,
     images = images.transpose(0, 2, 1, 3, 4)
     images = images.reshape((height * n_row, width * n_col, channels))
   
-  filename = '%s_%s.jpg' % (prefix, get_timestamp())
+  filename = '%s_%d.jpg' % (prefix, t)
   scipy.misc.toimage(images, cmin=cmin, cmax=cmax) \
       .save(os.path.join(directory, filename))
 
