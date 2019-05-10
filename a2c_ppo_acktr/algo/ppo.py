@@ -69,7 +69,6 @@ class PPO():
                 value_loss = F.mse_loss(return_batch, values)
 
                 #print(value_loss)
-                print(psc_add)
 
                 self.optimizer.zero_grad()
                 (value_loss * self.value_loss_coef + action_loss -
